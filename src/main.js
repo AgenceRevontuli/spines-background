@@ -1,6 +1,20 @@
 import './style.css'
 import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import vertexGradient from './shaders/vertex.glsl'
+import fragmentGradient from './shaders/fragment.glsl'
+import Stats from 'stats.js'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer'
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass'
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass'
+import vertexGrain from './shaders/grain/vertex.glsl'
+import fragmentGrain from './shaders/grain/fragment.glsl'
+
+/**
+ * Performances
+ */
+const stats = new Stats()
+stats.showPanel(0)
+document.body.appendChild(stats.dom)
 
 
 /**
@@ -30,6 +44,21 @@ window.addEventListener('resize', () => {
 })
 
 /**
+ * Colors 
+ */
+let colors = [
+  '#bababa', 
+  '#c54787',
+  '#414060',
+  '#414572',
+  '#d47fa6'
+]
+
+// Convert to threejs colors 
+colors = colors.map((color) => new THREE.Color(color))
+console.log(colors)
+
+/**
  * Scene 
  */
 const scene = new THREE.Scene()
@@ -37,25 +66,29 @@ const scene = new THREE.Scene()
 /**
  * Objects
  */
-const box = new THREE.Mesh(
-  new THREE.PlaneGeometry(1, 1),
-  new THREE.MeshBasicMaterial({ color: 0xff0000 })
+const gradient = new THREE.Mesh(
+  new THREE.PlaneGeometry(2, 2, 70, 70),
+  new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0.5 }, 
+      uColor: { value: colors }
+    },
+    vertexShader: vertexGradient, 
+    fragmentShader: fragmentGradient, 
+    wireframe: false, 
+    side: THREE.DoubleSide
+  })
 )
-scene.add(box)
+console.log(gradient)
+scene.add(gradient)
 
 
 /**
  * Camera
  */
 const camera = new THREE.PerspectiveCamera(45, sizes.width / sizes.height, 0.1, 100)
-camera.position.z = 3
+camera.position.set(0,0,0.2)
 scene.add(camera)
-
-/**
- * Controls 
- */
-const controls = new OrbitControls(camera, canvas)
-controls.enableDamping = true
 
 /**
  * Renderer
@@ -66,6 +99,30 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setSize(sizes.width, sizes.height)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
+/** 
+ * Post Processing
+ */
+const effectComposer = new EffectComposer(renderer)
+effectComposer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+effectComposer.setSize(sizes.width, sizes.height)
+
+const renderPass = new RenderPass(scene, camera)
+effectComposer.addPass(renderPass)
+
+let counter = 100
+
+const GrainShader = {
+  uniforms:{
+    tDiffuse: { value: null },
+    uAmount: { value: counter }
+  }, 
+  vertexShader: vertexGrain,
+  fragmentShader: fragmentGrain,
+}
+const grainShader = new ShaderPass(GrainShader)
+effectComposer.addPass(grainShader)
+
+
 /**
  * Animations
  */
@@ -75,11 +132,20 @@ const clock = new THREE.Clock
 const tick = () => {
   const elapsedTime = clock.getElapsedTime()
 
+  stats.begin()
+
+  // Update uTime 
+  gradient.material.uniforms.uTime.value = elapsedTime * 0.005
+
   // Update Renderer 
-  renderer.render(scene, camera)
+  // renderer.render(scene, camera)
+  effectComposer.render()
+
 
   // Call tick on all frames
   window.requestAnimationFrame(tick)
+
+  stats.end()
 }
 
 tick()
