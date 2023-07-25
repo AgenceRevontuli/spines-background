@@ -67,7 +67,7 @@ const scene = new THREE.Scene()
  * Objects
  */
 const gradient = new THREE.Mesh(
-  new THREE.PlaneGeometry(2, 2, 70, 70),
+  new THREE.PlaneGeometry(2, 2, 200, 200),
   new THREE.ShaderMaterial({
     uniforms: {
       uTime: { value: 0.5 }, 
